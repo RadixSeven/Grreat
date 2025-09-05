@@ -1,0 +1,21 @@
+[project]
+name="grreat"
+description="Gerrymandering Resistence Research, Education, And Training"
+version = "0.1.0"
+dependencies = [
+    "pre-commit",
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 80
+indent-width = 4
+target-version = "py313"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+strict = true
+mypy_path = "src,stubs"
