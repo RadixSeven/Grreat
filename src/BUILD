@@ -1,7 +1,4 @@
-python_sources(
-    dependencies = [
-    ],
-)
+python_sources()
 
 pex_binary(
     name = "main",

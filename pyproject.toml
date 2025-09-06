@@ -3,6 +3,9 @@ name="grreat"
 description="Gerrymandering Resistence Research, Education, And Training"
 version = "0.1.0"
 dependencies = [
+    # Main dependencies
+    "typed-argument-parser",
+    # Dev dependencies
     "pre-commit",
     "pytest",
     "ruff",
