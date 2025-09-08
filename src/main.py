@@ -3,24 +3,34 @@ import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import TypedDict
 
 from tap import Tap
 
 
-def one_plus_power_of_two(s: str) -> int:
+def one_plus_power_of_two(s: str, arg_name: str | None = None) -> int:
     """Validate that the input is one plus a power of two
 
     The power of 2 must be at least 2.
+
+    Args:
+        s: The string to validate as one plus a power of two.
+        arg_name: Optional name of the argument for error messages. This is
+            to use outside argparse.
     """
+    err_prefix = f"error: argument {arg_name}: " if arg_name else ""
     try:
         value = int(s)
         if value < 3 or (value - 1) & (value - 2) != 0:
             raise argparse.ArgumentTypeError(
-                "Value must be one plus a power of two (at least 3)."
+                f"{err_prefix}Value must be one plus a power of two "
+                f"(at least 3)."
             )
         return value
     except ValueError:
-        raise argparse.ArgumentTypeError("Value must be an integer.")
+        raise argparse.ArgumentTypeError(
+            f"{err_prefix}Value must be an integer."
+        )
 
 
 def zero_to_one(s: str) -> float:
@@ -64,19 +74,24 @@ class GrreatConfig(Tap):
     geo_random_steps: int
     geo_neighbor_weight: float
     num_districts: int
+    num_delegates_per_district: int
     output_directory: Path
+    load_pop_map: Path | None
+    precincts: list[list[float]] | None = None
 
     def configure(self) -> None:
         """TAP config that doesn't fit as class attributes"""
         self.add_argument(
             "--world-width",
             type=one_plus_power_of_two,
+            default=0,  # Invalid - fixed in self.process_args
             help="Width of the world in precincts. "
             "Must be one plus a power of two (at least 3)",
         )
         self.add_argument(
             "--world-height",
             type=one_plus_power_of_two,
+            default=0,  # Invalid - fixed in self.process_args
             help="Height of the world in precincts. "
             "Must be one plus a power of two (at least 3)",
         )
@@ -117,13 +132,84 @@ class GrreatConfig(Tap):
             help="Number of districts to create in the world. "
             "Must be at least 2.",
         )
+        self.add_argument(
+            "--num-delegates-per-district",
+            type=int_at_least(1),
+            default=1,
+            help="Number of delegates to elect per district. "
+            "Must be at least 1.",
+        )
         now_str = datetime.now().astimezone().strftime("%Y-%m-%dT%H-%M-%S")
         self.add_argument(
             "--output-directory",
             type=Path,
             default=Path(f"output-{now_str}"),
-            help="Directory where output files will be saved.",
+            help="Directory where output files will be saved. Besides "
+            "simulation results, this will also contain a population map "
+            "file that can be loaded in future runs to evaluate the "
+            "results of different and ransom values on the same "
+            "underlying population distribution.",
         )
+        self.add_argument(
+            "--load-pop-map",
+            type=Path,
+            default=None,
+            help="Path to a pre-generated population map file to load instead "
+            "of generating a new one. If this is provided, the other "
+            "population generation parameters will be ignored.",
+        )
+
+    def process_args(self) -> None:
+        """Process arguments that need additional validation or transformation"""
+        if self.load_pop_map is None:
+            # Verify to ensure that the values are consistent - since the
+            # default values are not for world_width and world_height.
+            try:
+                self.world_width = one_plus_power_of_two(
+                    str(self.world_width), arg_name="--world-width"
+                )
+                self.world_height = one_plus_power_of_two(
+                    str(self.world_height), arg_name="--world-height"
+                )
+                return
+            except argparse.ArgumentTypeError as e:
+                self.print_help(sys.stderr)
+                print(e, file=sys.stderr)
+                sys.exit(1)
+
+        p_map_or_err = load_population_map(self.load_pop_map)
+        if isinstance(p_map_or_err, str):
+            self.print_help(sys.stderr)
+            print(
+                p_map_or_err,
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        p_map: PopulationMap = p_map_or_err
+        self.world_width = p_map["width"]
+        self.world_height = p_map["height"]
+        self.precinct_population = p_map["precinct_population"]
+        self.precincts = p_map["precincts"]
+
+
+class PopulationMap(TypedDict):
+    """TypedDict for a population map file"""
+
+    width: int
+    height: int
+    precinct_population: int
+    precincts: list[list[float]]
+
+
+def load_population_map(path: Path) -> PopulationMap | str:
+    """Load a population map from the given path."""
+    # TODO: Implement loading logic for population map file format.
+    try:
+        return PopulationMap(
+            width=0, height=0, precinct_population=0, precincts=[]
+        )
+    except (FileNotFoundError, ValueError) as e:
+        return f"Error loading population map from {path}: {e}"
 
 
 def main() -> int:
