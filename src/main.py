@@ -1,4 +1,6 @@
 import argparse
+import itertools
+import logging
 import sys
 from collections.abc import Callable
 from datetime import datetime
@@ -64,6 +66,36 @@ def int_at_least(min_value: int) -> Callable[[str], int]:
     return validator
 
 
+# A string verified to be one of the valid logging level names
+# that may be passed to logging.getLevelNameNamesMapping() to get the
+# corresponding integer logging level.
+LogLevel = str
+
+ALL_LOG_LEVEL_NAMES = list(
+    itertools.chain.from_iterable(
+        [(k, k.casefold()) for k in logging.getLevelNamesMapping().keys()]
+    )
+)
+
+
+def log_level(s: str) -> LogLevel:
+    """Validate that the input is a valid logging level
+
+    Allow case-insensitive matching of logging level names, and return the
+    corresponding integer logging level if valid, otherwise raise an error.
+    """
+    l_map = {
+        name.casefold(): level
+        for name, level in logging.getLevelNamesMapping().items()
+    }
+    level = l_map.get(s.casefold(), None)
+    if level is None:
+        raise argparse.ArgumentTypeError(
+            f"Value must be one of {', '.join(ALL_LOG_LEVEL_NAMES)}."
+        )
+    return logging.getLevelName(level)
+
+
 class GrreatConfig(Tap):
     """Configuration for Minimal Grreat simulation"""
 
@@ -78,6 +110,7 @@ class GrreatConfig(Tap):
     output_directory: Path
     load_pop_map: Path | None
     precincts: list[list[float]] | None = None
+    log_level: LogLevel
 
     def configure(self) -> None:
         """TAP config that doesn't fit as class attributes"""
@@ -157,6 +190,13 @@ class GrreatConfig(Tap):
             help="Path to a pre-generated population map file to load instead "
             "of generating a new one. If this is provided, the other "
             "population generation parameters will be ignored.",
+        )
+        self.add_argument(
+            "--log-level",
+            choices=ALL_LOG_LEVEL_NAMES,
+            type=log_level,
+            default=logging.INFO,
+            help="Logging level to use.",
         )
 
     def process_args(self) -> None:
