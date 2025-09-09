@@ -5,9 +5,12 @@ import sys
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict
 
-from tap import Tap
+from pydantic import BaseModel, Field, AfterValidator, ValidationError
+from typing import TypedDict, Annotated
+
+from pydantic_core import ErrorDetails
+from tap import Tap, to_tap_class
 
 
 def one_plus_power_of_two(s: str, arg_name: str | None = None) -> int:
@@ -23,16 +26,14 @@ def one_plus_power_of_two(s: str, arg_name: str | None = None) -> int:
     err_prefix = f"error: argument {arg_name}: " if arg_name else ""
     try:
         value = int(s)
-        if value < 3 or (value - 1) & (value - 2) != 0:
-            raise argparse.ArgumentTypeError(
-                f"{err_prefix}Value must be one plus a power of two "
-                f"(at least 3)."
-            )
-        return value
     except ValueError:
-        raise argparse.ArgumentTypeError(
-            f"{err_prefix}Value must be an integer."
+        raise ValueError(f"{err_prefix}Value must be an integer.")
+
+    if value < 3 or (value - 1) & (value - 2) != 0:
+        raise ValueError(
+            f"{err_prefix}Value must be one plus a power of two (at least 3)."
         )
+    return value
 
 
 def zero_to_one(s: str) -> float:
@@ -94,6 +95,33 @@ def log_level(s: str) -> LogLevel:
             f"Value must be one of {', '.join(ALL_LOG_LEVEL_NAMES)}."
         )
     return logging.getLevelName(level)
+
+
+P_WORLD_WIDTH = Annotated[
+    int,
+    AfterValidator(one_plus_power_of_two),
+    Field(
+        ge=3,
+        description="Width of the world in precincts. "
+        "Must be one plus a power of two (at least 3)",
+    ),
+]
+P_WORLD_HEIGHT = Annotated[
+    int,
+    AfterValidator(one_plus_power_of_two),
+    Field(
+        ge=3,
+        description="Height of the world in precincts. "
+        "Must be one plus a power of two (at least 3)",
+    ),
+]
+
+
+class GrreatConfigModel(BaseModel):
+    """Pydantic model for Grreat configuration"""
+
+    world_width: P_WORLD_WIDTH
+    world_height: P_WORLD_HEIGHT
 
 
 class GrreatConfig(Tap):
@@ -254,10 +282,22 @@ def load_population_map(path: Path) -> PopulationMap | str:
 
 def main() -> int:
     """Run Grreat simulation"""
-    args = GrreatConfig().parse_args()
-    print(args)
-    # TODO: stub
-    return 0
+    try:
+        make_arg_parser = to_tap_class(GrreatConfigModel)
+        args = make_arg_parser().parse_args()
+        model = GrreatConfigModel(**args.as_dict())
+        GrreatConfigModel.model_validate(model)
+        print(args)
+        # TODO: stub
+        return 0
+    except ValidationError as e:
+        errs: list[ErrorDetails] = e.errors()
+        for err in errs:
+            print(
+                f"Validation error in field '{'.'.join(map(str, err['loc']))}': {err['msg']}",
+                file=sys.stderr,
+            )
+        return 1
 
 
 if __name__ == "__main__":
