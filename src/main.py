@@ -186,6 +186,7 @@ class GrreatConfigModel(BaseModel):
 class PopulationMap(TypedDict):
     """TypedDict for a population map file"""
 
+    # TODO: Add reading from population map file before full validation.
     width: int
     height: int
     precinct_population: int
