@@ -2,7 +2,6 @@ import argparse
 import itertools
 import logging
 import sys
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -34,37 +33,6 @@ def one_plus_power_of_two(s: str, arg_name: str | None = None) -> int:
             f"{err_prefix}Value must be one plus a power of two (at least 3)."
         )
     return value
-
-
-def zero_to_one(s: str) -> float:
-    """Validate that the input is a float between 0.0 and 1.0 inclusive"""
-    try:
-        value = float(s)
-        if value < 0.0 or value > 1.0:
-            raise argparse.ArgumentTypeError(
-                "Value must be between 0.0 and 1.0 inclusive."
-            )
-        return value
-    except ValueError:
-        raise argparse.ArgumentTypeError("Value must be a float.")
-
-
-def int_at_least(min_value: int) -> Callable[[str], int]:
-    """Return a function that validates that the input is an integer at
-    least min_value"""
-
-    def validator(s: str) -> int:
-        try:
-            value = int(s)
-            if value < min_value:
-                raise argparse.ArgumentTypeError(
-                    f"Value must be at least {min_value}."
-                )
-            return value
-        except ValueError:
-            raise argparse.ArgumentTypeError("Value must be an integer.")
-
-    return validator
 
 
 # A string verified to be one of the valid logging level names
