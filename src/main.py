@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, AfterValidator, ValidationError
 from typing import TypedDict, Annotated
 
 from pydantic_core import ErrorDetails
-from tap import Tap, to_tap_class
+from tap import to_tap_class
 
 
 def one_plus_power_of_two(s: str, arg_name: str | None = None) -> int:
@@ -82,7 +82,7 @@ ALL_LOG_LEVEL_NAMES = list(
 def log_level(s: str) -> LogLevel:
     """Validate that the input is a valid logging level
 
-    Allow case-insensitive matching of logging level names, and return the
+    Allow case-insensitive matching of logging level names and return the
     corresponding integer logging level if valid, otherwise raise an error.
     """
     l_map = {
@@ -115,6 +115,83 @@ P_WORLD_HEIGHT = Annotated[
         "Must be one plus a power of two (at least 3)",
     ),
 ]
+P_PRECINCT_POPULATION = Annotated[
+    int,
+    Field(
+        ge=1,
+        description="Number of voters in each precinct. Must be at least 1.",
+    ),
+]
+P_RED_FRACTION = Annotated[
+    float,
+    Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction of red voters in the world. "
+        "Must be between 0.0 and 1.0 inclusive.",
+    ),
+]
+P_GEO_RANDOM_STEPS = Annotated[
+    int,
+    Field(
+        ge=4,
+        description="Number of completely random steps to take when initializing "
+        "the population geography before taking neighbors into account. "
+        "(Must be at least 4.)",
+    ),
+]
+P_GEO_NEIGHBOR_WEIGHT = Annotated[
+    float,
+    Field(
+        ge=0.0,
+        le=1.0,
+        description="Fraction of the precinct's population determined by the "
+        "average of its neighbors' populations, the rest is a random value "
+        "sampled uniformly from remaining population members without "
+        "replacement. (Must be between 0.0 and 1.0 inclusive.)",
+    ),
+]
+P_NUM_DISTRICTS = Annotated[
+    int,
+    Field(
+        ge=2,
+        description="Number of districts to create in the world. "
+        "Must be at least 2.",
+    ),
+]
+P_NUM_DELEGATES_PER_DISTRICT = Annotated[
+    int,
+    Field(
+        ge=1,
+        description="Number of delegates to elect per district. "
+        "Must be at least 1.",
+    ),
+]
+P_OUTPUT_DIRECTORY = Annotated[
+    Path,
+    Field(
+        description="Directory where output files will be saved. Besides "
+        "simulation results, this will also contain a population map "
+        "file that can be loaded in future runs to evaluate the "
+        "results of different and ransom values on the same "
+        "underlying population distribution.",
+    ),
+]
+P_LOAD_POP_MAP = Annotated[
+    Path | None,
+    Field(
+        default=None,
+        description="Path to a pre-generated population map file to load instead "
+        "of generating a new one. If this is provided, the other "
+        "population generation parameters will be ignored.",
+    ),
+]
+P_LOG_LEVEL = Annotated[
+    LogLevel,
+    Field(
+        description="Logging level to use.",
+    ),
+]
 
 
 class GrreatConfigModel(BaseModel):
@@ -122,142 +199,20 @@ class GrreatConfigModel(BaseModel):
 
     world_width: P_WORLD_WIDTH
     world_height: P_WORLD_HEIGHT
-
-
-class GrreatConfig(Tap):
-    """Configuration for Minimal Grreat simulation"""
-
-    world_width: int
-    world_height: int
-    precinct_population: int
-    red_fraction: float
-    geo_random_steps: int
-    geo_neighbor_weight: float
-    num_districts: int
-    num_delegates_per_district: int
-    output_directory: Path
-    load_pop_map: Path | None
+    precinct_population: P_PRECINCT_POPULATION = 1000
+    red_fraction: P_RED_FRACTION = 0.5
+    geo_random_steps: P_GEO_RANDOM_STEPS = 4
+    geo_neighbor_weight: P_GEO_NEIGHBOR_WEIGHT = 0.5
+    num_districts: P_NUM_DISTRICTS = 10
+    num_delegates_per_district: P_NUM_DELEGATES_PER_DISTRICT = 1
+    output_directory: P_OUTPUT_DIRECTORY = Field(
+        default_factory=lambda: Path(
+            f"output-{datetime.now().astimezone().strftime('%Y-%m-%dT%H-%M-%S')}"
+        )
+    )
+    load_pop_map: P_LOAD_POP_MAP = None
     precincts: list[list[float]] | None = None
-    log_level: LogLevel
-
-    def configure(self) -> None:
-        """TAP config that doesn't fit as class attributes"""
-        self.add_argument(
-            "--world-width",
-            type=one_plus_power_of_two,
-            default=0,  # Invalid - fixed in self.process_args
-            help="Width of the world in precincts. "
-            "Must be one plus a power of two (at least 3)",
-        )
-        self.add_argument(
-            "--world-height",
-            type=one_plus_power_of_two,
-            default=0,  # Invalid - fixed in self.process_args
-            help="Height of the world in precincts. "
-            "Must be one plus a power of two (at least 3)",
-        )
-        self.add_argument(
-            "--precinct-population",
-            type=int_at_least(1),
-            default=1000,
-            help="Number of voters in each precinct. Must be at least 1.",
-        )
-        self.add_argument(
-            "--red-fraction",
-            type=zero_to_one,
-            default=0.5,
-            help="Fraction of red voters in the world. "
-            "Must be between 0.0 and 1.0 inclusive.",
-        )
-        self.add_argument(
-            "--geo-random-steps",
-            type=int_at_least(4),
-            default=4,
-            help="Number of completely random steps to take when initializing "
-            "the population geography before taking neighbors into account. "
-            "(Must be at least 4.)",
-        )
-        self.add_argument(
-            "--geo-neighbor-weight",
-            type=zero_to_one,
-            default=0.5,
-            help="Fraction of the precinct's population determined by the "
-            "average of its neighbors' populations, the rest is a random value "
-            "sampled uniformly from remaining population members without "
-            "replacement. (Must be between 0.0 and 1.0 inclusive.)",
-        )
-        self.add_argument(
-            "--num-districts",
-            type=int_at_least(2),
-            default=10,
-            help="Number of districts to create in the world. "
-            "Must be at least 2.",
-        )
-        self.add_argument(
-            "--num-delegates-per-district",
-            type=int_at_least(1),
-            default=1,
-            help="Number of delegates to elect per district. "
-            "Must be at least 1.",
-        )
-        now_str = datetime.now().astimezone().strftime("%Y-%m-%dT%H-%M-%S")
-        self.add_argument(
-            "--output-directory",
-            type=Path,
-            default=Path(f"output-{now_str}"),
-            help="Directory where output files will be saved. Besides "
-            "simulation results, this will also contain a population map "
-            "file that can be loaded in future runs to evaluate the "
-            "results of different and ransom values on the same "
-            "underlying population distribution.",
-        )
-        self.add_argument(
-            "--load-pop-map",
-            type=Path,
-            default=None,
-            help="Path to a pre-generated population map file to load instead "
-            "of generating a new one. If this is provided, the other "
-            "population generation parameters will be ignored.",
-        )
-        self.add_argument(
-            "--log-level",
-            choices=ALL_LOG_LEVEL_NAMES,
-            type=log_level,
-            default=logging.INFO,
-            help="Logging level to use.",
-        )
-
-    def process_args(self) -> None:
-        """Process arguments that need additional validation or transformation"""
-        if self.load_pop_map is None:
-            # Verify to ensure that the values are consistent - since the
-            # default values are not for world_width and world_height.
-            try:
-                self.world_width = one_plus_power_of_two(
-                    str(self.world_width), arg_name="--world-width"
-                )
-                self.world_height = one_plus_power_of_two(
-                    str(self.world_height), arg_name="--world-height"
-                )
-                return
-            except argparse.ArgumentTypeError as e:
-                self.print_help(sys.stderr)
-                print(e, file=sys.stderr)
-                sys.exit(1)
-
-        p_map_or_err = load_population_map(self.load_pop_map)
-        if isinstance(p_map_or_err, str):
-            self.print_help(sys.stderr)
-            print(
-                p_map_or_err,
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        p_map: PopulationMap = p_map_or_err
-        self.world_width = p_map["width"]
-        self.world_height = p_map["height"]
-        self.precinct_population = p_map["precinct_population"]
-        self.precincts = p_map["precincts"]
+    log_level: P_LOG_LEVEL = "INFO"
 
 
 class PopulationMap(TypedDict):
