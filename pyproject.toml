@@ -5,6 +5,7 @@ version = "0.1.0"
 dependencies = [
     # Main dependencies
     "typed-argument-parser",
+    "pydantic",
     # Dev dependencies
     "pre-commit",
     "pytest",
