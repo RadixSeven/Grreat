@@ -205,15 +205,16 @@ def load_population_map(path: Path) -> PopulationMap | str:
 
 def main() -> int:
     """Run Grreat simulation"""
+    arg_parser = to_tap_class(GrreatConfigModel)()
     try:
-        make_arg_parser = to_tap_class(GrreatConfigModel)
-        args = make_arg_parser().parse_args()
+        args = arg_parser.parse_args()
         model = GrreatConfigModel(**args.as_dict())
         GrreatConfigModel.model_validate(model)
         print(args)
         # TODO: stub
         return 0
     except ValidationError as e:
+        arg_parser.print_usage(sys.stderr)
         errs: list[ErrorDetails] = e.errors()
         for err in errs:
             print(
