@@ -45,6 +45,12 @@ Proposed first-pass minimal demo:
   - The visualizations will help in debugging and will help show any results to others.
 - Because of the fixed voting behavior, we can map voter percentages to number-of-red and number-of-blue from a multi-member district. For example, in a 3-member district, with 550 red and 450 blue voters. The threshold for 1 seat is 25%+1 that is 251. So, candidate R1 gets 550 1st choice votes from red voters. 251 are used to choose candidate R1. The remaining 299 second place votes go to candidate R2. Now we have 450 votes for candidate B1. That beats 299 for candidate R2. So, 251 of those go to B1. 199 go to candidate B2. Now we have 299 R2 vs 199 B2. That selects the final vote as R2. So, 550R vs 450B yields 2R and 1B.
 
+## Revision
+
+- Simpler map generation: use uniform distribution
+- Simpler optimization: don't try for incremental calculation of metrics, use
+  Python metric function.
+
 ## One-liner for simple bench test
 
 This runs all checks and then runs the main program with a minimal world.
