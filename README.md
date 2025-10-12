@@ -2,6 +2,12 @@
 
 GRREAT (Gerrymandering Resistance Research, Education, And Training)
 
+# Test command line
+
+```shell
+pants lint :: && pants check :: && pants test :: && pants package :: && dist/grreat.pex --help
+```
+
 # First Pass Minimal Demo
 
 Proposed first-pass minimal demo:
