@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 
+from pydantic import model_validator
 from sqlalchemy.orm import Relationship
 from sqlmodel import SQLModel, Field
 
@@ -48,6 +49,19 @@ class PopulationDistribution(SQLModel, table=True):
     checkerboard_rect_distribution_id: int | None = Field(
         foreign_key="checkerboard_rect_distribution.id"
     )
+
+    @model_validator(mode="after")
+    def validate_distribution(self):
+        """Validate that only one of the distributions is set"""
+        num_set_ids = sum(
+            1 if i else 0
+            for i in (
+                self.uniform_rect_distribution_id,
+                self.checkerboard_rect_distribution_id,
+            )
+        )
+        if num_set_ids != 1:
+            raise ValueError("Exactly one distribution type id must be set.")
 
 
 class UniformRectDistribution(SQLModel, table=True):
