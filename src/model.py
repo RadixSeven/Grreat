@@ -19,7 +19,7 @@ class FactionTotal(SQLModel, table=True):
         foreign_key="faction_totals.id", primary_key=True
     )
     faction_id: int = Field(primary_key=True)
-    population: int
+    population: int = Field(ge=0)
 
 
 class FactionTotals(SQLModel, table=True):
@@ -77,8 +77,8 @@ class UniformRectDistribution(SQLModel, table=True):
 
     id: int | None = Field(primary_key=True)
     faction_totals_id: int | None = Field(foreign_key="faction_totals.id")
-    width: int
-    height: int
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
 
 
 class CheckerboardRectDistribution(SQLModel, table=True):
@@ -106,10 +106,10 @@ class CheckerboardRectDistribution(SQLModel, table=True):
         foreign_key="faction_totals.id"
     )
     odd_precinct_population: int | None = Field(foreign_key="faction_totals.id")
-    num_block_width: int
-    num_block_height: int
-    block_width: int
-    block_height: int
+    num_block_width: int = Field(ge=1)
+    num_block_height: int = Field(ge=1)
+    block_width: int = Field(ge=1)
+    block_height: int = Field(ge=1)
 
 
 class PopulationMap(SQLModel, table=True):
@@ -158,4 +158,4 @@ class PopulationMapCellFactionCount(SQLModel, table=True):
         foreign_key="population_map.id", index=True, primary_key=True
     )
     faction_id: int = Field(primary_key=True)
-    count: int = Field(default=0)
+    count: int = Field(ge=0)
