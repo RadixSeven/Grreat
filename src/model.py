@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from pydantic import model_validator
-from sqlalchemy.orm import Relationship
+from sqlalchemy.orm import Relationship, Mapped
 from sqlmodel import SQLModel, Field
 
 
@@ -26,7 +26,7 @@ class FactionTotals(SQLModel, table=True):
     """A list of faction totals"""
 
     id: int | None = Field(primary_key=True)
-    totals: list[FactionTotal] = Relationship(
+    totals: Mapped[list[FactionTotal]] = Relationship(
         back_populates="faction_totals_id"
     )
 
@@ -51,7 +51,7 @@ class PopulationDistribution(SQLModel, table=True):
     )
 
     @model_validator(mode="after")
-    def validate_distribution(self):
+    def validate_distribution(self) -> "PopulationDistribution":
         """Validate that only one of the distributions is set"""
         num_set_ids = sum(
             1 if i else 0
@@ -62,6 +62,7 @@ class PopulationDistribution(SQLModel, table=True):
         )
         if num_set_ids != 1:
             raise ValueError("Exactly one distribution type id must be set.")
+        return self
 
 
 class UniformRectDistribution(SQLModel, table=True):
@@ -131,8 +132,8 @@ class PopulationMap(SQLModel, table=True):
     distribution_id: int | None = Field(
         foreign_key="population_distribution.id"
     )
-    faction_counts: list["PopulationMapCellFactionCount"] = Relationship(
-        back_populates="population_map_cell_id"
+    faction_counts: Mapped[list["PopulationMapCellFactionCount"]] = (
+        Relationship(back_populates="population_map_cell_id")
     )
 
 
