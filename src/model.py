@@ -1,10 +1,58 @@
 """Models for Grreat experiments"""
 
 from datetime import datetime, timezone
+from typing import Literal, Annotated
 
 from pydantic import model_validator
 from sqlalchemy.orm import Relationship, Mapped
 from sqlmodel import SQLModel, Field
+
+Point3D = Annotated[tuple[float, float, float], Field(min_items=3, max_items=3)]
+Boundary = list[Point3D]
+FactionPopulations = list[Annotated[int, Field(ge=0)]]
+
+
+class PopulationMapDataV100(SQLModel):
+    """The non-searched population map data
+
+    We don't need to search this, so it will be serialized as
+    a compressed JSON blob.
+
+    Attributes
+    ----------
+
+    version: The version of the data format - use a different literal
+       for each version.
+    points: The points in the map that form the boundaries of the precincts.
+       The index of a point in this list is the ID of the point.
+    boundaries: The boundaries of the precincts. boundaries[i] is the boundary
+       of the precinct whose ID is i.
+    populations: The populations of the precincts. populations[i][j] is the
+       population of faction j in precinct i. For all factions with ids more
+       than the length of population[i], the population is 0.
+    """
+
+    version: Literal[100] = 100
+    points: list[Point3D]
+    boundaries: list[Boundary]
+    populations: list[FactionPopulations]
+    # TODO: finish PopulationMapDataV100
+
+
+PopulationMapDataAnyVersion = Annotated[
+    PopulationMapDataV100, Field(discriminator="version")
+]
+
+# To use for deserialization:
+# adapter = TypeAdapter(PopulationMapDataAnyVersion)
+# deserialized = adapter.validate_python(a_dict)
+#
+# # When PopulationMapDataV100 is not the latest
+# updated = deserialized
+# if isinstance(updated, PopulationMapDataV100):
+#    updated = upgrade_100_to_101(updated)
+# if isinstance(updated, PopulationMapDataV101):
+#    ...
 
 
 class FactionTotal(SQLModel, table=True):
